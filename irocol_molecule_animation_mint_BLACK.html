@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Irocol – Molecular Animation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #0a0f1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function project(x, y, z) {
+      const fov = Math.min(canvas.width, canvas.height) * 1.1;
+      const scale = fov / (fov + z);
+      return {
+        x: canvas.width / 2 + x * scale,
+        y: canvas.height / 2 + y * scale,
+        scale
+      };
+    }
+
+    function rotateY(x, y, z, a) {
+      return { x: x * Math.cos(a) - z * Math.sin(a), y, z: x * Math.sin(a) + z * Math.cos(a) };
+    }
+    function rotateX(x, y, z, a) {
+      return { x, y: y * Math.cos(a) - z * Math.sin(a), z: y * Math.sin(a) + z * Math.cos(a) };
+    }
+
+    // Scale factor based on screen size
+    function sc() { return Math.min(canvas.width, canvas.height) / 520; }
+
+    const spokes = [
+      { dx: -1, dy: 0, dz: 0 },
+      { dx:  1, dy: 0, dz: 0 },
+      { dx:  0, dy: -1, dz: 0 },
+      { dx:  0, dy:  1, dz: 0 },
+      { dx: -0.7, dy: -0.7, dz: 0 },
+      { dx:  0.7, dy: -0.7, dz: 0 },
+      { dx: -0.7, dy:  0.7, dz: 0 },
+      { dx:  0.7, dy:  0.7, dz: 0 },
+    ];
+
+    function makeSpoke(d, innerR, outerR) {
+      const len = Math.sqrt(d.dx*d.dx + d.dy*d.dy + d.dz*d.dz);
+      const nx = d.dx/len, ny = d.dy/len, nz = d.dz/len;
+      return {
+        inner: { x: nx * innerR, y: ny * innerR, z: nz * innerR },
+        outer: { x: nx * outerR, y: ny * outerR, z: nz * outerR },
+      };
+    }
+
+    function makeRing(radius, tiltX, tiltY, nDots) {
+      const dots = [];
+      for (let i = 0; i < nDots; i++) {
+        const a = (i / nDots) * Math.PI * 2;
+        let x = Math.cos(a) * radius;
+        let y = Math.sin(a) * radius;
+        let z = 0;
+        const ry = y * Math.cos(tiltX) - z * Math.sin(tiltX);
+        const rz = y * Math.sin(tiltX) + z * Math.cos(tiltX);
+        y = ry; z = rz;
+        const rx2 = x * Math.cos(tiltY) + z * Math.sin(tiltY);
+        const rz2 = -x * Math.sin(tiltY) + z * Math.cos(tiltY);
+        x = rx2; z = rz2;
+        dots.push({ x, y, z });
+      }
+      return dots;
+    }
+
+    const ring1 = makeRing(130, 0.3, 0.2, 60);
+    const ring2 = makeRing(220, -0.25, 0.35, 90);
+
+    let t = 0;
+
+    function draw() {
+      t += 0.008;
+      const s = sc();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0a0f1a';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const ay = t * 0.6;
+      const ax = Math.sin(t * 0.3) * 0.4 + 0.15;
+      const floatY = Math.sin(t * 0.7) * 12 * s;
+
+      function tr(p) {
+        let { x, y, z } = { x: p.x * s, y: p.y * s, z: p.z * s };
+        let r = rotateY(x, y, z, ay);
+        r = rotateX(r.x, r.y, r.z, ax);
+        r.y += floatY;
+        return project(r.x, r.y, r.z);
+      }
+
+      // Dotted rings
+      [ring1, ring2].forEach((ring, ri) => {
+        ring.forEach(dot => {
+          const p = tr(dot);
+          const dotSize = (ri === 0 ? 1.8 : 2.2) * s;
+          const alpha = Math.min(0.85, 0.3 + 0.5 * p.scale);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, dotSize * p.scale, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(107,255,188,${alpha})`;
+          ctx.fill();
+        });
+      });
+
+      // Spokes
+      const spokeData = spokes.map(sp => makeSpoke(sp, 80, 160));
+      const cProj = tr({ x: 0, y: 0, z: 0 });
+
+      spokeData.forEach(sp => {
+        const iProj = tr(sp.inner);
+        const oProj = tr(sp.outer);
+
+        ctx.beginPath();
+        ctx.moveTo(cProj.x, cProj.y);
+        ctx.lineTo(oProj.x, oProj.y);
+        ctx.strokeStyle = `rgba(107,255,188,${0.25 * oProj.scale + 0.1})`;
+        ctx.lineWidth = 0.8 * s;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(iProj.x, iProj.y, 7 * s * iProj.scale, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(107,255,188,${0.5 * iProj.scale + 0.2})`;
+        ctx.lineWidth = 1 * s;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(oProj.x, oProj.y, 7 * s * oProj.scale, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(107,255,188,${0.4 * oProj.scale + 0.15})`;
+        ctx.lineWidth = 0.8 * s;
+        ctx.stroke();
+      });
+
+      // Central node
+      const r = 14 * s * cProj.scale;
+      ctx.beginPath();
+      ctx.arc(cProj.x, cProj.y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#6BFFBC';
+      ctx.lineWidth = 1.2 * s;
+      ctx.stroke();
+
+      const xd = r * 0.55;
+      ctx.beginPath();
+      ctx.moveTo(cProj.x - xd, cProj.y - xd);
+      ctx.lineTo(cProj.x + xd, cProj.y + xd);
+      ctx.moveTo(cProj.x + xd, cProj.y - xd);
+      ctx.lineTo(cProj.x - xd, cProj.y + xd);
+      ctx.strokeStyle = '#6BFFBC';
+      ctx.lineWidth = 1 * s;
+      ctx.stroke();
+
+      const pulse = 1 + 0.06 * Math.sin(t * 3);
+      ctx.beginPath();
+      ctx.arc(cProj.x, cProj.y, r * 1.6 * pulse, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(107,255,188,0.18)';
+      ctx.lineWidth = 0.7 * s;
+      ctx.stroke();
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
+  </script>
+</body>
+</html>
