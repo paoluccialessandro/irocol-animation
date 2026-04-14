@@ -3,13 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Logo 3D Metallo</title>
+<title>Logo 3D Cromato Fluo</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#111; width:100vw; height:100vh; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-  canvas { display:block; cursor:grab; }
-  canvas:active { cursor:grabbing; }
-  #hint { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); color:#555; font-size:11px; letter-spacing:3px; text-transform:uppercase; font-family:sans-serif; }
+  body {
+    background: #000;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas { display: block; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  #hint {
+    position: fixed; bottom: 18px; left: 50%;
+    transform: translateX(-50%);
+    color: #888; font-size: 11px;
+    letter-spacing: 3px; text-transform: uppercase;
+    font-family: sans-serif;
+  }
 </style>
 </head>
 <body>
@@ -17,58 +28,76 @@
 <div id="hint">trascina per ruotare</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ── SVG PATH PARSER ───────────────────────────────────────────────────────────
+// ── SVG PATH PARSER (potrace relative commands) ──────────────────────────────
 function parsePotracePath(d, tx, ty) {
+  // tx/ty = funzioni di trasformazione coordinate
   const shape = new THREE.Shape();
   const holes = [];
   let cur = shape;
   let isFirst = true;
   let x = 0, y = 0, sx = 0, sy = 0;
-  const tokens = d.replace(/\n/g,' ').trim().replace(/([MmCcLlZz])/g,' $1 ').trim().split(/\s+/).filter(Boolean);
+
+  const tokens = d.replace(/\n/g,' ').trim()
+    .replace(/([MmCcLlZz])/g,' $1 ')
+    .trim().split(/\s+/).filter(Boolean);
+
   let i = 0;
   function num() { return parseFloat(tokens[i++]); }
+
   while (i < tokens.length) {
     const cmd = tokens[i++];
     if (cmd === 'M') {
-      x=num(); y=num(); sx=x; sy=y;
-      if (isFirst) { cur.moveTo(tx(x),ty(y)); isFirst=false; }
-      else { cur=new THREE.Path(); holes.push(cur); cur.moveTo(tx(x),ty(y)); }
+      x = num(); y = num(); sx = x; sy = y;
+      if (isFirst) { cur.moveTo(tx(x), ty(y)); isFirst = false; }
+      else {
+        cur = new THREE.Path();
+        holes.push(cur);
+        cur.moveTo(tx(x), ty(y));
+      }
     } else if (cmd === 'm') {
-      x+=num(); y+=num(); sx=x; sy=y;
-      if (isFirst) { cur.moveTo(tx(x),ty(y)); isFirst=false; }
-      else { cur=new THREE.Path(); holes.push(cur); cur.moveTo(tx(x),ty(y)); }
+      x += num(); y += num(); sx = x; sy = y;
+      if (isFirst) { cur.moveTo(tx(x), ty(y)); isFirst = false; }
+      else {
+        cur = new THREE.Path();
+        holes.push(cur);
+        cur.moveTo(tx(x), ty(y));
+      }
     } else if (cmd === 'c') {
-      while (i<tokens.length && !isNaN(+tokens[i])) {
+      while (i < tokens.length && !isNaN(+tokens[i])) {
         const dx1=num(),dy1=num(),dx2=num(),dy2=num(),dx=num(),dy=num();
         cur.bezierCurveTo(tx(x+dx1),ty(y+dy1),tx(x+dx2),ty(y+dy2),tx(x+dx),ty(y+dy));
         x+=dx; y+=dy;
       }
     } else if (cmd === 'l') {
-      while (i<tokens.length && !isNaN(+tokens[i])) {
-        const dx=num(),dy=num(); cur.lineTo(tx(x+dx),ty(y+dy)); x+=dx; y+=dy;
+      while (i < tokens.length && !isNaN(+tokens[i])) {
+        const dx=num(),dy=num();
+        cur.lineTo(tx(x+dx),ty(y+dy));
+        x+=dx; y+=dy;
       }
-    } else if (cmd==='z'||cmd==='Z') { cur.closePath(); x=sx; y=sy; }
+    } else if (cmd === 'z' || cmd === 'Z') {
+      cur.closePath(); x=sx; y=sy;
+    }
   }
-  shape.holes=holes; return shape;
+  shape.holes = holes;
+  return shape;
 }
 
-// ── SETUP ─────────────────────────────────────────────────────────────────────
+// ── SETUP THREE.JS ────────────────────────────────────────────────────────────
 const canvas = document.getElementById('c');
 const W = window.innerWidth, H = window.innerHeight;
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(W, H);
-renderer.setClearColor(0x111111);
+renderer.setClearColor(0x000000);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.4;
-renderer.shadowMap.enabled = false;
+renderer.toneMappingExposure = 1.2;
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(34, W/H, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(36, W/H, 0.1, 200);
 camera.position.set(0, 0, 7);
 
-// ── ENV MAP alta risoluzione per riflessi realistici ─────────────────────────
-const cubeRT = new THREE.WebGLCubeRenderTarget(1024, {
+// ── ENV MAP (cubeCamera per riflessi) ────────────────────────────────────────
+const cubeRT = new THREE.WebGLCubeRenderTarget(512, {
   format: THREE.RGBFormat,
   generateMipmaps: true,
   minFilter: THREE.LinearMipmapLinearFilter,
@@ -76,77 +105,91 @@ const cubeRT = new THREE.WebGLCubeRenderTarget(1024, {
 const cubeCamera = new THREE.CubeCamera(0.1, 100, cubeRT);
 scene.add(cubeCamera);
 
-// ── AMBIENTE: piani colorati che simulano studio fotografico ──────────────────
-// Bianco puro sopra (fill dall'alto come softbox)
-const top = new THREE.Mesh(new THREE.PlaneGeometry(30,30),
-  new THREE.MeshBasicMaterial({color:0xffffff, side:THREE.FrontSide}));
-top.position.set(0,12,0); top.rotation.x=Math.PI/2; scene.add(top);
+// ── LUCI per effetto cromato giallo fluo ─────────────────────────────────────
+// Luce principale bianca
+const lMain = new THREE.DirectionalLight(0xffffff, 5);
+lMain.position.set(3, 5, 5);
+scene.add(lMain);
 
-// Grigio scuro sotto
-const bot = new THREE.Mesh(new THREE.PlaneGeometry(30,30),
-  new THREE.MeshBasicMaterial({color:0x111111, side:THREE.FrontSide}));
-bot.position.set(0,-10,0); bot.rotation.x=-Math.PI/2; scene.add(bot);
+// Luce secondaria giallo-verde
+const lSide = new THREE.DirectionalLight(0xffffff, 3);
+lSide.position.set(-4, -2, 3);
+scene.add(lSide);
 
-// Striscia luminosa orizzontale sinistra (simula pannello riflettente)
-const left = new THREE.Mesh(new THREE.PlaneGeometry(4,20),
-  new THREE.MeshBasicMaterial({color:0xffffff, side:THREE.FrontSide}));
-left.position.set(-11,0,2); left.rotation.y=Math.PI/2; scene.add(left);
+// Fill bianco freddo per riflessi metallici
+const lFill = new THREE.DirectionalLight(0xffffff, 3);
+lFill.position.set(0, 3, -5);
+scene.add(lFill);
 
-// Striscia luminosa destra
-const right = new THREE.Mesh(new THREE.PlaneGeometry(4,20),
-  new THREE.MeshBasicMaterial({color:0xeeeeee, side:THREE.FrontSide}));
-right.position.set(11,0,2); right.rotation.y=-Math.PI/2; scene.add(right);
-
-// Sfondo neutro scuro
-const back = new THREE.Mesh(new THREE.PlaneGeometry(30,30),
-  new THREE.MeshBasicMaterial({color:0x1a1a1a, side:THREE.FrontSide}));
-back.position.set(0,0,-12); scene.add(back);
-
-// Pavimento riflesso lieve
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(30,30),
-  new THREE.MeshBasicMaterial({color:0x1c1c1c, side:THREE.FrontSide}));
-floor.position.set(0,-8,0); floor.rotation.x=-Math.PI/2; scene.add(floor);
-
-// ── LUCI FISICAMENTE ACCURATE ─────────────────────────────────────────────────
-// Key light (principale, da alto-destra, intensa e bianca)
-const lKey = new THREE.DirectionalLight(0xffffff, 4);
-lKey.position.set(4, 8, 6); scene.add(lKey);
-
-// Fill light (da sinistra, morbida, leggermente più fredda)
-const lFill = new THREE.DirectionalLight(0xe8f0ff, 1.5);
-lFill.position.set(-6, 2, 4); scene.add(lFill);
-
-// Rim light (da dietro-alto, crea bordi luminosi metallici)
-const lRim = new THREE.DirectionalLight(0xffffff, 3);
-lRim.position.set(-2, 6, -8); scene.add(lRim);
-
-// Rim destra
-const lRim2 = new THREE.DirectionalLight(0xf0f0f0, 2);
-lRim2.position.set(5, -2, -6); scene.add(lRim2);
-
-// Sotto (bounce leggero dal pavimento)
-const lBounce = new THREE.DirectionalLight(0xcccccc, 0.8);
-lBounce.position.set(0, -6, 3); scene.add(lBounce);
-
-// Ambient bassissimo
-scene.add(new THREE.AmbientLight(0x303030, 1));
-
-// Point dinamiche per brillantezza
-const p1 = new THREE.PointLight(0xffffff, 6, 18);
-p1.position.set(3, 4, 5); scene.add(p1);
+// Point lights dinamiche
+const p1 = new THREE.PointLight(0xffffff, 7, 20);
+p1.position.set(2, 3, 4);
+scene.add(p1);
 
 const p2 = new THREE.PointLight(0xffffff, 4, 15);
-p2.position.set(-4, -2, 4); scene.add(p2);
+p2.position.set(-3, -2, 4);
+scene.add(p2);
 
-// ── MATERIALE METALLO GRIGIO CROMATO ─────────────────────────────────────────
-const chromeMat = new THREE.MeshStandardMaterial({
-  color: 0x999999,          // grigio neutro metallo
-  metalness: 1.0,           // 100% metallico
-  roughness: 0.06,          // quasi specchio ma non perfetto
-  envMap: cubeRT.texture,
-  envMapIntensity: 2.5,
+const p3 = new THREE.PointLight(0xffffff, 4, 20);
+p3.position.set(-2, 4, -3);
+scene.add(p3);
+
+const p4 = new THREE.PointLight(0xffffff, 3, 20);
+p4.position.set(4, -3, 2);
+scene.add(p4);
+
+scene.add(new THREE.AmbientLight(0x444444, 1.5));
+
+// ── PIANI SFONDO per riflessi colorati ───────────────────────────────────────
+[
+  { p:[0,0,-12],  r:[0,0,0],           c:0x1a1a1a },
+  { p:[12,0,0],   r:[0,-Math.PI/2,0],  c:0x141414 },
+  { p:[-12,0,0],  r:[0,Math.PI/2,0],   c:0x111111 },
+  { p:[0,10,0],   r:[Math.PI/2,0,0],   c:0x1e1e1e },
+  { p:[0,-10,0],  r:[-Math.PI/2,0,0],  c:0x141414 },
+  { p:[0,0,14],   r:[0,Math.PI,0],     c:0x111111 },
+].forEach(({p,r,c}) => {
+  const pl = new THREE.Mesh(
+    new THREE.PlaneGeometry(40,40),
+    new THREE.MeshBasicMaterial({color:c, side:THREE.FrontSide})
+  );
+  pl.position.set(...p); pl.rotation.set(...r);
+  scene.add(pl);
 });
 
+// ── MATERIALE CROMATO GIALLO FLUO ────────────────────────────────────────────
+const chromeMat = new THREE.MeshStandardMaterial({
+  color: 0x888888,
+  metalness: 1.0,
+  roughness: 0.08,
+  envMap: cubeRT.texture,
+  envMapIntensity: 3.0,
+  emissive: 0x000000,
+  emissiveIntensity: 0,
+});
+
+// ── BUILD LOGO SHAPE DAI PATH REALI ──────────────────────────────────────────
+// Transform SVG originale: translate(0,892) scale(0.025,-0.025)
+// Il path è in coordinate potrace (unità 0.1pt, 4x upscale)
+// ViewBox 724×892. Normalizziamo a ~[-1.5, 1.5] per Three.js
+
+// Bounding box approssimativa del logo nel viewBox 724×892:
+// logo occupa circa x:80-640, y:30-850 → center≈(362,446)
+const CX = 362, CY = 446, SCALE = 320;
+
+function tx(px) {
+  // da coordinate SVG viewBox (0-724, 0-892) a Three.js
+  // Il transform SVG è: translate(0,892) scale(0.025,-0.025)
+  // quindi x_vb = px_potrace * 0.025
+  //        y_vb = 892 - py_potrace * 0.025
+  // ma noi riceviamo già le coordinate potrace raw
+  return (px * 0.025 - CX) / SCALE;
+}
+function ty(py) {
+  return (892 - py * 0.025 - CY) / SCALE;
+}
+
+// PATH 1: corpo principale del logo (scudo + volpe)
 const PATH_MAIN = `M5535 30568 c-55 -5 -146 -17 -202 -28 -57 -11 -114 -20 -126 -20
 -13 0 -50 -9 -82 -20 -32 -11 -71 -20 -86 -20 -16 0 -52 -9 -81 -20 -29 -11
 -64 -20 -76 -20 -13 0 -38 -6 -55 -14 -36 -16 -110 -41 -177 -61 -25 -7 -58
@@ -370,35 +413,37 @@ const shapeMain   = parsePotracePath(PATH_MAIN,     tx, ty);
 const shapeR      = parsePotracePath(PATH_R,        tx, ty);
 const shapeRletter= parsePotracePath(PATH_RLETTER,  tx, ty);
 
-
 const extOpts = {
-  depth: 0.22,
+  depth: 0.18,
   bevelEnabled: true,
-  bevelThickness: 0.055,
-  bevelSize: 0.045,
-  bevelSegments: 12,      // più segmenti = bordi più lisci e riflettenti
-  curveSegments: 128,     // curve altissima risoluzione
+  bevelThickness: 0.045,
+  bevelSize: 0.038,
+  bevelSegments: 8,
+  curveSegments: 80,
 };
 
 const group = new THREE.Group();
-const geo = new THREE.ExtrudeGeometry(shapeMain, extOpts);
-group.add(new THREE.Mesh(geo, chromeMat));
 
-// Centra
+[shapeMain].forEach(shape => {
+  const geo = new THREE.ExtrudeGeometry(shape, extOpts);
+  group.add(new THREE.Mesh(geo, chromeMat));
+});
+
+// Centra il gruppo
 const box = new THREE.Box3().setFromObject(group);
 const center = new THREE.Vector3();
 box.getCenter(center);
 group.position.sub(center);
 scene.add(group);
 
-// Più passate env map per riflessi di alta qualità
+// ── PRIMA PASSATA ENV MAP ─────────────────────────────────────────────────────
 group.visible = false;
-for(let i=0;i<3;i++) cubeCamera.update(renderer, scene);
+cubeCamera.update(renderer, scene);
 group.visible = true;
 chromeMat.envMap = cubeRT.texture;
 chromeMat.needsUpdate = true;
 
-// ── INTERAZIONE ───────────────────────────────────────────────────────────────
+// ── MOUSE / TOUCH ─────────────────────────────────────────────────────────────
 let drag=false, lx=0, ly=0, rx=0, ry=0;
 canvas.addEventListener('mousedown', e=>{drag=true;lx=e.clientX;ly=e.clientY;});
 window.addEventListener('mouseup', ()=>drag=false);
@@ -420,22 +465,18 @@ window.addEventListener('touchmove',e=>{
 let auto=0;
 function animate(){
   requestAnimationFrame(animate);
-  if(!drag) auto+=0.006;
-  const t = Date.now()*0.001;
+  if(!drag) auto+=0.007;
 
-  // Luci orbitanti per riflessi vivi che cambiano
-  p1.position.set(Math.cos(t*0.5)*6, Math.sin(t*0.3)*5+2, 5);
-  p2.position.set(Math.cos(t*0.4+Math.PI)*5, Math.sin(t*0.5+1)*3-1, 4);
+  // Luci orbitanti per riflessi dinamici
+  const t = Date.now()*0.001;
+  p1.position.set(Math.cos(t*0.7)*5, Math.sin(t*0.5)*4, 4);
+  p3.position.set(Math.cos(t*0.4+2)*4, Math.sin(t*0.6+1)*3, -3);
 
   group.rotation.y = auto + ry;
-  group.rotation.x = Math.PI + rx*0.5;
-  group.position.y = Math.sin(t*0.6)*0.04;
+  group.rotation.x = Math.PI + rx * 0.5;
+  group.position.y = Math.sin(t*0.7)*0.06;
 
-  // Aggiorna env map ogni frame per riflessi dinamici precisi
-  group.visible=false;
   cubeCamera.update(renderer, scene);
-  group.visible=true;
-
   renderer.render(scene, camera);
 }
 animate();
